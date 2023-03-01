@@ -6,4 +6,4 @@ set(CLI_SRCS ${CLI_DIR}/src/cli.c
 idf_component_register(SRCS ${CLI_SRCS}
                        INCLUDE_DIRS ${CLI_DIR}/inc
                        PRIV_INCLUDE_DIRS ${CLI_DIR}/priv_inc
-                       REQUIRES console nvs_flash)
+                       REQUIRES freertos console ble)

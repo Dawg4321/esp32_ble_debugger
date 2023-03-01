@@ -1,3 +1,3 @@
 idf_component_register(SRCS "ble_debugger.c"
                     INCLUDE_DIRS "."
-                    REQUIRES cli)
+                    REQUIRES cli nvs_flash)

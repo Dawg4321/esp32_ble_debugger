@@ -1,8 +1,11 @@
 #include "commands.h"
 
-
 #include "esp_console.h"
 #include "argtable3/argtable3.h"
+#include "freertos/FreeRTOS.h"
+#include "freertos/task.h"
+
+#include "gap.h"
 
 #define BLE_SCAN_ARG_NUM 1
 #define MINIMUM_BLE_SCAN_TIME_S 1 // seconds
@@ -14,17 +17,28 @@ static struct{
     struct arg_end* end;
 }ble_scan_args;
 
-int scan_arg_parse(int argc, char** argv){
-    int scan_duration = 0;
+int ble_scan_arg_parse(int argc, char** argv){
     arg_parse(argc, argv, (void**)&ble_scan_args);
     
+    int scan_duration = 0;
     if(ble_scan_args.duration->count == 0){
         scan_duration = DEFAULT_BLE_SCAN_DURATION_S;
     }
     else{
         scan_duration = ble_scan_args.duration->ival[0];
     }
+    gap_set_scan_duration(scan_duration);
 
+    esp_ble_scan_params_t ble_scan_params = {
+        .scan_type              = BLE_SCAN_TYPE_ACTIVE,
+        .own_addr_type          = BLE_ADDR_TYPE_PUBLIC,
+        .scan_filter_policy     = BLE_SCAN_FILTER_ALLOW_ALL,
+        .scan_interval          = 0x50,
+        .scan_window            = 0x30,
+        .scan_duplicate         = BLE_SCAN_DUPLICATE_ENABLE
+    };
+    gap_set_scan_params(ble_scan_params); // ble scan will start once parameters are successfully set
+    vTaskDelay((1000*scan_duration)/portTICK_PERIOD_MS);
     return 0;
 }
 
@@ -36,7 +50,7 @@ static void register_ble_scan(void){
         .command = "scan",
         .help = "Scans for BLE devices",
         .hint = NULL,
-        .func = &scan_arg_parse,
+        .func = &ble_scan_arg_parse,
         .argtable = &ble_scan_args,
     };
 

@@ -1,14 +1,10 @@
 #include "cli.h"
 
 #include  "esp_console.h"
-#include "nvs.h"
-#include "nvs_flash.h"
 
 #include "commands.h"
 
 void cli_init(){
-
-    ESP_ERROR_CHECK(nvs_flash_init());
 
     esp_console_repl_t *repl = NULL;
     esp_console_repl_config_t repl_cfg = ESP_CONSOLE_REPL_CONFIG_DEFAULT();
