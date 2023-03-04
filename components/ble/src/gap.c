@@ -1,11 +1,34 @@
 #include "gap.h"
 #include "gap_priv.h"
 
+#include <string.h>
+#include <inttypes.h>
+#include <stdlib.h>
+
 #include "esp_log.h"
 
-static int gap_scan_duration = 10;
+#define MAC_ADDR_LENGTH 6 
+#define MAC_ADDR_LAYOUT "%02x:%02x:%02x:%02x:%02x:%02x"
+
+static int gap_scan_duration = 0;
 
 static const char* TAG = "GAP_SERVICE";
+
+typedef struct {
+    uint8_t mac[MAC_ADDR_LENGTH];
+    bool mac_set_flag;
+    uint8_t* name;
+    uint8_t name_size;
+    bool name_alloc_flag;
+}scan_target_t;
+
+static scan_target_t scan_target = {
+    .mac = {0x00, 0x00, 0x00, 0x00, 0x00, 0x00}, // invalid mac
+    .mac_set_flag = false,
+    .name = NULL,
+    .name_size = 0,
+    .name_alloc_flag = false
+};
 
 void gap_set_scan_duration(int duration){
     gap_scan_duration = duration;
@@ -15,6 +38,78 @@ void gap_set_scan_duration(int duration){
 void gap_set_scan_params(esp_ble_scan_params_t ble_scan_params){
     esp_ble_gap_set_scan_params(&ble_scan_params);
     return;
+}
+
+void gap_reset_scan_target(){
+    if(scan_target.mac_set_flag){
+        scan_target.mac[0] = 0x00;
+        scan_target.mac[1] = 0x00;
+        scan_target.mac[2] = 0x00;
+        scan_target.mac[3] = 0x00;
+        scan_target.mac[4] = 0x00;
+        scan_target.mac[5] = 0x00;
+        scan_target.mac_set_flag = false;
+    }
+    
+    if(scan_target.name_alloc_flag){
+        free(scan_target.name);
+        scan_target.name = NULL;
+        scan_target.name_size = 0;
+        scan_target.name_alloc_flag = false;
+    }
+    return;
+}
+
+bool gap_set_target_name(char** target_name){
+    scan_target.name = malloc((strlen(*target_name))*sizeof(uint8_t)); // not adding one for null terminator as gap_scan names are not null terminated
+    if(scan_target.name != NULL){
+        memcpy(scan_target.name, *target_name, strlen(*target_name));
+        scan_target.name_size = strlen(*target_name);
+        scan_target.name_alloc_flag = true;
+        return true;
+    }
+    return false;
+}
+
+bool gap_set_target_mac(char** target_mac){
+    unsigned int val_0, val_1, val_2, val_3, val_4, val_5 = 0;
+    if(sscanf(*target_mac, MAC_ADDR_LAYOUT, &val_0, &val_1, &val_2, &val_3, &val_4, &val_5) == MAC_ADDR_LENGTH){
+        scan_target.mac[0] = val_0;
+        scan_target.mac[1] = val_1;
+        scan_target.mac[2] = val_2;
+        scan_target.mac[3] = val_3;
+        scan_target.mac[4] = val_4;
+        scan_target.mac[5] = val_5;
+        scan_target.mac_set_flag = true;
+        return true;
+    }
+    return false;
+}
+
+static bool gap_scan_compare(uint8_t* mac, uint8_t* name, size_t name_size){
+    bool mac_match, name_match = false;
+    if((scan_target.mac_set_flag &&
+        memcmp(scan_target.mac, mac, MAC_ADDR_LENGTH) == 0) 
+      || (!scan_target.mac_set_flag))
+    {
+        mac_match = true; // mac addr has been set and matches target mac or mac addr is not set (no need to compare)
+    }
+    else{
+        mac_match = false;
+    }
+    
+    if((scan_target.name_alloc_flag &&
+        scan_target.name_size == name_size &&
+        memcmp(scan_target.name, name, name_size) == 0)
+      || (!scan_target.name_alloc_flag))
+    {
+        name_match = true; // name has been set and matches target name or name is not set (no need to compare)
+    }
+    else{
+        name_match = false;
+    }
+
+    return (mac_match && name_match);
 }
 
 void esp_gap_cb(esp_gap_ble_cb_event_t event, esp_ble_gap_cb_param_t *param){
@@ -36,18 +131,18 @@ void esp_gap_cb(esp_gap_ble_cb_event_t event, esp_ble_gap_cb_param_t *param){
             esp_ble_gap_cb_param_t *scan_result = (esp_ble_gap_cb_param_t *)param;
             switch (scan_result->scan_rst.search_evt){
                 case ESP_GAP_SEARCH_INQ_RES_EVT:
-                    uint8_t *adv_name = NULL;
                     uint8_t adv_name_len = 0;
-                    
-                    if(adv_name_len != 0){
-                        adv_name = esp_ble_resolve_adv_data(scan_result->scan_rst.ble_adv, ESP_BLE_AD_TYPE_NAME_CMPL, &adv_name_len);
-                        esp_log_buffer_char(TAG, adv_name, adv_name_len);
+                    uint8_t *adv_name = esp_ble_resolve_adv_data(scan_result->scan_rst.ble_adv, ESP_BLE_AD_TYPE_NAME_CMPL, &adv_name_len);
+                    if(gap_scan_compare(scan_result->scan_rst.bda, adv_name, adv_name_len)){ // if scan result matches set target
+                        if(adv_name_len != 0){
+                            esp_log_buffer_char(TAG, adv_name, adv_name_len);
+                        }
+                        else{
+                            ESP_LOGI(TAG, "No Adv Name (adv name length = 0)");
+                        }
+                        esp_log_buffer_hex(TAG, scan_result->scan_rst.bda, 6);
+                        ESP_LOGI(TAG, "searched Adv Data Length: %d, Scan Response Length: %d\n", scan_result->scan_rst.adv_data_len, scan_result->scan_rst.scan_rsp_len);
                     }
-                    else{
-                        ESP_LOGI(TAG, "No Adv Name (adv name length = 0)");
-                    }
-                    esp_log_buffer_hex(TAG, scan_result->scan_rst.bda, 6);
-                    ESP_LOGI(TAG, "searched Adv Data Length: %d, Scan Response Length: %d\n", scan_result->scan_rst.adv_data_len, scan_result->scan_rst.scan_rsp_len);
                     break;
                 case ESP_GAP_SEARCH_INQ_CMPL_EVT:
                     break;

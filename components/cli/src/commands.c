@@ -8,20 +8,32 @@
 #include "gap.h"
 
 #define BLE_SCAN_ARG_NUM 1
-#define MINIMUM_BLE_SCAN_TIME_S 1 // seconds
-#define MAXIMUM_BLE_SCAN_TIME_S 1 // seconds
 #define DEFAULT_BLE_SCAN_DURATION_S 5 // seconds
 
 static struct{
     struct arg_int* duration;
+    struct arg_str* adv_name;
+    struct arg_str* mac_addr;
     struct arg_end* end;
 }ble_scan_args;
 
 int ble_scan_arg_parse(int argc, char** argv){
-    arg_parse(argc, argv, (void**)&ble_scan_args);
-    
+    int errors = arg_parse(argc, argv, (void**)&ble_scan_args);
+    if (errors > 0){
+        arg_print_errors(stdout, ble_scan_args.end, "scan");
+        printf("Try 'help' for more information.\n");
+        return 0;
+    }
+
+    if(ble_scan_args.adv_name->count >= 0){
+        gap_set_target_name((char**)ble_scan_args.adv_name->sval);
+    }
+    if(ble_scan_args.mac_addr->count >= 0){
+        gap_set_target_mac((char**)ble_scan_args.mac_addr->sval);
+    }
+
     int scan_duration = 0;
-    if(ble_scan_args.duration->count == 0){
+    if(ble_scan_args.duration->count == 0){ // no duration flag thus use default scan duration
         scan_duration = DEFAULT_BLE_SCAN_DURATION_S;
     }
     else{
@@ -39,11 +51,14 @@ int ble_scan_arg_parse(int argc, char** argv){
     };
     gap_set_scan_params(ble_scan_params); // ble scan will start once parameters are successfully set
     vTaskDelay((1000*scan_duration)/portTICK_PERIOD_MS);
+    gap_reset_scan_target();
     return 0;
 }
 
 static void register_ble_scan(void){
-    ble_scan_args.duration = arg_intn("t", "time", "<1-10>", MINIMUM_BLE_SCAN_TIME_S, MAXIMUM_BLE_SCAN_TIME_S,"Scan time - s");
+    ble_scan_args.duration = arg_intn("t", "time", "<1-10>", 0, 1,"OPTIONAL: Scan time - s");
+    ble_scan_args.adv_name = arg_strn("n", "name", "<name>", 0, 1,"OPTIONAL: Name to scan for");
+    ble_scan_args.mac_addr = arg_strn("m", "mac", "<XX:XX:XX:XX:XX:XX>", 0, 1,"OPTIONAL: MAC Address to scan for");
     ble_scan_args.end = arg_end(BLE_SCAN_ARG_NUM);
 
     const esp_console_cmd_t ble_scan = {
