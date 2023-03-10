@@ -7,6 +7,7 @@
 #include "esp_bt_main.h"
 
 #include "gap_priv.h"
+#include "gatt_priv.h"
 
 #define BLE_DEBUGGER_APP_ID 0x56
 
@@ -25,7 +26,7 @@ void ble_init(void){
 
     ESP_ERROR_CHECK(esp_ble_gap_register_callback(&esp_gap_cb));
 
-    //ESP_ERROR_CHECK(esp_ble_gattc_register_callback(esp_gattc_cb));
+    ESP_ERROR_CHECK(esp_ble_gattc_register_callback(esp_gatt_cb));
 
     ESP_ERROR_CHECK(esp_ble_gattc_app_register(BLE_DEBUGGER_APP_ID));
 

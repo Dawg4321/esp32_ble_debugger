@@ -7,8 +7,7 @@
 
 #include "esp_log.h"
 
-#define MAC_ADDR_LENGTH 6 
-#define MAC_ADDR_LAYOUT "%02x:%02x:%02x:%02x:%02x:%02x"
+#include "mac_utils.h"
 
 static int gap_scan_duration = 0;
 
@@ -35,9 +34,9 @@ void gap_set_scan_duration(int duration){
     return;
 }
 
-void gap_set_scan_params(esp_ble_scan_params_t ble_scan_params){
-    esp_ble_gap_set_scan_params(&ble_scan_params);
-    return;
+esp_err_t gap_set_scan_params(esp_ble_scan_params_t ble_scan_params){
+    return esp_ble_gap_set_scan_params(&ble_scan_params);
+    
 }
 
 void gap_reset_scan_target(){
@@ -72,18 +71,10 @@ bool gap_set_target_name(char** target_name){
 }
 
 bool gap_set_target_mac(char** target_mac){
-    unsigned int val_0, val_1, val_2, val_3, val_4, val_5 = 0;
-    if(sscanf(*target_mac, MAC_ADDR_LAYOUT, &val_0, &val_1, &val_2, &val_3, &val_4, &val_5) == MAC_ADDR_LENGTH){
-        scan_target.mac[0] = val_0;
-        scan_target.mac[1] = val_1;
-        scan_target.mac[2] = val_2;
-        scan_target.mac[3] = val_3;
-        scan_target.mac[4] = val_4;
-        scan_target.mac[5] = val_5;
-        scan_target.mac_set_flag = true;
-        return true;
-    }
-    return false;
+    ESP_LOGI(TAG, "%s", *target_mac);
+    scan_target.mac_set_flag = char_to_uint_mac(*target_mac, scan_target.mac);
+    //ESP_LOGI(TAG, "%02x:%02x:%02x:%02x:%02x:%02x", scan_target.mac[0], scan_target.mac[1], scan_target.mac[2], scan_target.mac[3], scan_target.mac[4], scan_target.mac[5]);
+    return scan_target.mac_set_flag;
 }
 
 static bool gap_scan_compare(uint8_t* mac, uint8_t* name, size_t name_size){
@@ -141,7 +132,7 @@ void esp_gap_cb(esp_gap_ble_cb_event_t event, esp_ble_gap_cb_param_t *param){
                             ESP_LOGI(TAG, "No Adv Name (adv name length = 0)");
                         }
                         esp_log_buffer_hex(TAG, scan_result->scan_rst.bda, 6);
-                        ESP_LOGI(TAG, "searched Adv Data Length: %d, Scan Response Length: %d\n", scan_result->scan_rst.adv_data_len, scan_result->scan_rst.scan_rsp_len);
+                        ESP_LOGI(TAG, "Searched Adv Data Length: %d, Scan Response Length: %d\n", scan_result->scan_rst.adv_data_len, scan_result->scan_rst.scan_rsp_len);
                     }
                     break;
                 case ESP_GAP_SEARCH_INQ_CMPL_EVT:
