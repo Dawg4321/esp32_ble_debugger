@@ -6,6 +6,7 @@
 #include <stdlib.h>
 
 #include "esp_log.h"
+#include "esp_bt_defs.h"
 
 #include "mac_utils.h"
 
@@ -14,7 +15,7 @@ static int gap_scan_duration = 0;
 static const char* TAG = "GAP_SERVICE";
 
 typedef struct {
-    uint8_t mac[MAC_ADDR_LENGTH];
+    esp_bd_addr_t mac;
     bool mac_set_flag;
     uint8_t* name;
     uint8_t name_size;
@@ -72,15 +73,13 @@ bool gap_set_target_name(char** target_name){
 
 bool gap_set_target_mac(char** target_mac){
     ESP_LOGI(TAG, "%s", *target_mac);
-    scan_target.mac_set_flag = char_to_uint_mac(*target_mac, scan_target.mac);
-    //ESP_LOGI(TAG, "%02x:%02x:%02x:%02x:%02x:%02x", scan_target.mac[0], scan_target.mac[1], scan_target.mac[2], scan_target.mac[3], scan_target.mac[4], scan_target.mac[5]);
+    scan_target.mac_set_flag = char_to_addr(*target_mac, scan_target.mac);
     return scan_target.mac_set_flag;
 }
 
-static bool gap_scan_compare(uint8_t* mac, uint8_t* name, size_t name_size){
+static bool gap_scan_compare(esp_bd_addr_t mac, uint8_t* name, size_t name_size){
     bool mac_match, name_match = false;
-    if((scan_target.mac_set_flag &&
-        memcmp(scan_target.mac, mac, MAC_ADDR_LENGTH) == 0) 
+    if((scan_target.mac_set_flag && memcmp(scan_target.mac, mac, ESP_BD_ADDR_LEN) == 0) 
       || (!scan_target.mac_set_flag))
     {
         mac_match = true; // mac addr has been set and matches target mac or mac addr is not set (no need to compare)
@@ -89,9 +88,7 @@ static bool gap_scan_compare(uint8_t* mac, uint8_t* name, size_t name_size){
         mac_match = false;
     }
     
-    if((scan_target.name_alloc_flag &&
-        scan_target.name_size == name_size &&
-        memcmp(scan_target.name, name, name_size) == 0)
+    if((scan_target.name_alloc_flag && scan_target.name_size == name_size &&memcmp(scan_target.name, name, name_size) == 0)
       || (!scan_target.name_alloc_flag))
     {
         name_match = true; // name has been set and matches target name or name is not set (no need to compare)

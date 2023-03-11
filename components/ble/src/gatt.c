@@ -35,7 +35,7 @@ static struct gattc_profile_inst gl_profile_tab[NUM_OF_PROFILES] = {
 
 esp_err_t gatt_connect_to_mac(char** mac){
     esp_bd_addr_t ble_mac;
-    char_to_uint_mac(*mac, (uint8_t*) ble_mac);
+    char_to_addr(*mac, ble_mac);
     ESP_LOGI(TAG,"Connecting to %s", *mac);
     return esp_ble_gattc_open(gl_profile_tab[GATT_APP_ID].gattc_if, ble_mac, BLE_ADDR_TYPE_PUBLIC, true);
 }

@@ -4,8 +4,8 @@
 #include <stdint.h>
 #include <stdbool.h>
 
-#define MAC_ADDR_LENGTH 6
+#include "esp_bt_defs.h"
 
-bool char_to_uint_mac(char* mac_str, uint8_t* uint_mac);
+bool char_to_addr(char* mac_str, esp_bd_addr_t uint_mac);
 
 #endif

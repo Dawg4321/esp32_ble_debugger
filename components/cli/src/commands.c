@@ -113,7 +113,7 @@ int ble_connect_arg_parse(int argc, char** argv){
     if(ble_connect_args.mac_addr->count == 1){
         esp_err_t err = gatt_connect_to_mac((char**)ble_connect_args.mac_addr->sval);
         if(err != ESP_OK){
-            ESP_LOGE(TAG, "Failed to open GATT connection!");
+            ESP_LOGE("connect", "Failed to open GATT connection!");
         }
     }
 
