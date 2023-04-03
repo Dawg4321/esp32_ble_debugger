@@ -1,5 +1,5 @@
-#ifndef MAC_UTILS_H
-#define MAC_UTILS_H
+#ifndef BLE_UTILS_H
+#define BLE_UTILS_H
 
 #include <stdint.h>
 #include <stdbool.h>
