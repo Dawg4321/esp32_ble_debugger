@@ -13,6 +13,8 @@
 #define NUM_OF_PROFILES 1
 #define GATT_APP_ID 0
 
+#define MAX_NUM_OF_SERVICES 10
+
 static const char* TAG = "GATT_SERVICE";
 
 struct gattc_profile_inst{
@@ -54,8 +56,8 @@ void gatt_profile_event_handler(esp_gattc_cb_event_t event, esp_gatt_if_t gattc_
             gl_profile_tab[GATT_APP_ID].conn_id = p_data->connect.conn_id;
             memcpy(gl_profile_tab[GATT_APP_ID].remote_bda, p_data->connect.remote_bda, sizeof(esp_bd_addr_t));
             
-            esp_err_t mtu_ret = esp_ble_gattc_send_mtu_req (gattc_if, p_data->connect.conn_id);
-            if (mtu_ret){
+            esp_err_t mtu_ret = esp_ble_gattc_send_mtu_req(gattc_if, p_data->connect.conn_id);
+            if(mtu_ret != ESP_OK){
                 ESP_LOGE(TAG, "config MTU error, error code = %x", mtu_ret);
             }
             break;
@@ -65,15 +67,30 @@ void gatt_profile_event_handler(esp_gattc_cb_event_t event, esp_gatt_if_t gattc_
                 ESP_LOGE(TAG, "Failed to open connection, status %d", p_data->open.status);
                 break;
             }
-            ESP_LOGI(TAG, "Successfully open connection with %02x:%02x:%02x:%02x:%02x:%02x", gl_profile_tab[GATT_APP_ID].remote_bda[0],
+            ESP_LOGI(TAG, "Successfully opened connection with %02x:%02x:%02x:%02x:%02x:%02x", gl_profile_tab[GATT_APP_ID].remote_bda[0],
                                                                                              gl_profile_tab[GATT_APP_ID].remote_bda[1],
                                                                                              gl_profile_tab[GATT_APP_ID].remote_bda[2],
                                                                                              gl_profile_tab[GATT_APP_ID].remote_bda[3],
                                                                                              gl_profile_tab[GATT_APP_ID].remote_bda[4],
                                                                                              gl_profile_tab[GATT_APP_ID].remote_bda[5]);
+            ESP_LOGI(TAG, "Discovering GATT Services...");
+            esp_err_t err = esp_ble_gattc_search_service(gattc_if, p_data->connect.conn_id, NULL);
+            if(err != ESP_OK){
+                ESP_LOGE(TAG, "Failed to trigger GATT services search!");
+            }
             break;
         }
-        case ESP_GATTC_DIS_SRVC_CMPL_EVT:{
+        case ESP_GATTC_DIS_SRVC_CMPL_EVT:{  
+            uint16_t count = MAX_NUM_OF_SERVICES;
+            esp_gattc_service_elem_t services[MAX_NUM_OF_SERVICES];
+            esp_err_t err = esp_ble_gattc_get_service(gattc_if, p_data->connect.conn_id, NULL, services, &count, 0);
+            if(err != ESP_OK){
+                ESP_LOGE(TAG, "Failed to get GATT services!");
+                break;
+            }
+            for(int i = 0; i < count; i++){
+                print_gatt_service_info(services[i], i);
+            }
             break;
         }
         case ESP_GATTC_CFG_MTU_EVT:{
